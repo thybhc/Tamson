@@ -104,7 +104,8 @@
         let symphonyInstance = null;
         let gameInstance = null;
         
-        startSymphonyBtn.addEventListener('click', () => {
+        startSymphonyBtn.addEventListener('click', async () => {
+            await Tone.start();
             mainMenu.classList.add('hidden');
             symphonyContainer.classList.remove('hidden');
             backBtn.classList.remove('hidden');
@@ -114,7 +115,8 @@
             symphonyInstance.start();
         });
 
-        startGameBtn.addEventListener('click', () => {
+        startGameBtn.addEventListener('click', async () => {
+            await Tone.start();
             mainMenu.classList.add('hidden');
             gameContainer.classList.remove('hidden');
             backBtn.classList.remove('hidden');
@@ -144,12 +146,12 @@
             createNebulaBackground() { const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024; const context = canvas.getContext('2d'); const gradient = context.createRadialGradient(512, 512, 200, 512, 512, 512); gradient.addColorStop(0, 'rgba(10, 15, 25, 1)'); gradient.addColorStop(0.5, 'rgba(5, 10, 20, 1)'); gradient.addColorStop(1, 'rgba(0, 0, 5, 1)'); context.fillStyle = gradient; context.fillRect(0,0,1024,1024); for (let i=0; i < 30; i++) { context.fillStyle = `rgba(${Math.random()*20 + 10}, ${Math.random()*40 + 20}, ${Math.random()*50 + 40}, ${Math.random()*0.1})`; context.beginPath(); context.arc(Math.random()*1024, Math.random()*1024, Math.random()*250+80, 0, 2*Math.PI); context.fill(); } const nebulaTexture = new this.THREE.CanvasTexture(canvas); const nebulaGeo = new this.THREE.SphereGeometry(600, 64, 64); const nebulaMat = new this.THREE.MeshBasicMaterial({ map: nebulaTexture, side: this.THREE.BackSide, fog: false }); const nebula = new this.THREE.Mesh(nebulaGeo, nebulaMat); this.scene.add(nebula); }
             createStars() { const starGeo = new this.THREE.BufferGeometry(); const vertices = []; for (let i = 0; i < 15000; i++) { vertices.push((Math.random() - 0.5) * 1000, (Math.random() - 0.5) * 1000, (Math.random() - 0.5) * 1000); } starGeo.setAttribute('position', new this.THREE.Float32BufferAttribute(vertices, 3)); const starMat = new this.THREE.PointsMaterial({ color: 0xffffff, size: 0.25, fog: false }); const stars = new this.THREE.Points(starGeo, starMat); this.scene.add(stars); }
             onWindowResize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); this.composer.setSize(window.innerWidth, window.innerHeight); }
-            start() { if (!this.renderer) this.init(); this.isRunning = true; this.clock = new this.THREE.Clock(); this.animate(); Tone.start(); }
+            start() { if (!this.renderer) this.init(); this.isRunning = true; this.clock = new this.THREE.Clock(); this.animate(); }
             stop() { this.isRunning = false; if(this.animationFrameId) cancelAnimationFrame(this.animationFrameId); window.removeEventListener('resize', this.resizeListener); this.container.innerHTML = ''; this.renderer = null; }
             animate() { if (!this.isRunning) return; this.animationFrameId = requestAnimationFrame(() => this.animate()); const delta = this.clock.getDelta(); const elapsedTime = this.clock.getElapsedTime(); this.planets.forEach((p, index) => { p.group.rotation.y += p.data.speed; if(this.audioInitialized) { const angle = p.group.rotation.y % (2 * Math.PI); if(Math.abs(angle - Math.PI / 2) < 0.05 && elapsedTime - p.lastPlayTime > 3) { this.synths[index].triggerAttackRelease(this.notes[index % this.notes.length], "4n"); p.lastPlayTime = elapsedTime; } } }); this.asteroidBelt1.rotation.y += 0.0002; this.asteroidBelt2.rotation.y += 0.0001; this.controls.update(); this.composer.render(delta); }
         }
 
-        // --- Starship Game Class (with Final Polish) ---
+        // --- Starship Game Class (with All Fixes) ---
         class StarshipGame {
              constructor() {
                 this.canvas = document.getElementById('game-canvas');
@@ -174,9 +176,6 @@
                 
                 this.playerImage = this.createPlayerImage();
                 this.asteroidImages = [this.createAsteroidImage(), this.createAsteroidImage(), this.createAsteroidImage()];
-                
-                // Audio setup
-                this.audioInitialized = false;
                 this.initAudio();
             }
             
@@ -196,4 +195,4 @@
                 const fireButton = document.getElementById('fire-button');
                 
                 leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.player.dx = -this.player.speed; }, { passive: false });
-                leftBtn.addEventListener('touchend', (e) => { e.p
+                leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); if(this.player.dx <
