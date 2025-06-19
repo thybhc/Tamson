@@ -1,1 +1,199 @@
-# Tamson
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cosmic Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Corrected Importmap for Three.js -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow: hidden; background-color: #000; }
+        .hidden { display: none !important; }
+        .experience-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        /* Game Specific Styles */
+        #game-canvas { display: block; background-color: #000; cursor: none; }
+        #game-ui { position: absolute; top: 1rem; left: 1rem; color: white; font-size: 1.5rem; text-shadow: 2px 2px 4px #000; z-index: 100;}
+        #game-over-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; background-color: rgba(0,0,0,0.7); padding: 2rem; border-radius: 1rem; z-index: 100;}
+        /* Repositioned Mobile Button Controls */
+        #mobile-controls { 
+            position: absolute; 
+            bottom: 3rem; /* MOVED UP: Increased from 1.5rem to 3rem */
+            left: 0; 
+            width: 100%; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-end; 
+            padding-left: 1.5rem; 
+            padding-right: 1.5rem; 
+            z-index: 50; 
+            pointer-events: none; 
+        }
+        .move-button-group { display: flex; gap: 1rem; pointer-events: all; }
+        .mobile-btn { width: 80px; height: 80px; background-color: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; color: white; user-select: none; }
+        .mobile-btn:active { background-color: rgba(255, 255, 255, 0.4); }
+        #fire-button { width: 100px; height: 100px; background: radial-gradient(circle, rgba(255, 80, 80, 0.5) 0%, rgba(255, 80, 80, 0.2) 70%); border-radius: 50%; border: 3px solid rgba(255,255,255,0.5); display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; pointer-events: all; }
+        #fire-button:active { background: radial-gradient(circle, rgba(255, 80, 80, 0.7) 0%, rgba(255, 80, 80, 0.4) 70%); }
+    </style>
+</head>
+<body class="bg-black text-white">
+
+    <!-- Main Menu Portal -->
+    <div id="main-menu" class="w-full h-screen flex flex-col justify-center items-center p-4">
+        <h1 class="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400 mb-4">Cosmic Portal</h1>
+        <p class="text-lg md:text-xl text-gray-300 mb-12">An interactive experience by <a href="https://youtube.com/@gaithandtamson?feature=shared" target="_blank" rel="noopener noreferrer" class="text-cyan-300 font-bold hover:text-cyan-200 transition-colors">Gaith & Tamson</a></p>
+        <div class="flex flex-col md:flex-row gap-8">
+            <button id="start-symphony-btn" class="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg text-xl transition-transform transform hover:scale-105">Enter Cosmic Symphony</button>
+            <button id="start-game-btn" class="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg text-xl transition-transform transform hover:scale-105">Play Starship Voyager</button>
+        </div>
+    </div>
+
+    <!-- Experiences Containers -->
+    <div id="symphony-container" class="experience-container hidden"></div>
+    <div id="game-container" class="experience-container hidden">
+        <canvas id="game-canvas"></canvas>
+        <div id="game-ui">
+            <div>Score: <span id="score">0</span></div>
+            <div>Lives: <span id="lives">3</span></div>
+            <div class="mt-2">High Score: <span id="high-score">0</span></div>
+        </div>
+        <div id="game-over-screen" class="hidden">
+            <h2 class="text-4xl font-bold mb-4">Game Over</h2>
+            <p class="text-xl mb-6">Your Score: <span id="final-score">0</span></p>
+            <button id="restart-game-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg">Play Again</button>
+        </div>
+        <!-- New Button Controls HTML -->
+        <div id="mobile-controls" class="hidden">
+            <div class="move-button-group">
+                <div id="left-btn" class="mobile-btn">◀️</div>
+                <div id="right-btn" class="mobile-btn">▶️</div>
+            </div>
+            <div id="fire-button">FIRE</div>
+        </div>
+    </div>
+    
+    <!-- Back to Menu Button -->
+    <button id="back-to-menu-btn" class="hidden absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg z-[200]">Back to Menu</button>
+
+    <!-- Tone.js for Symphony & Game Audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- Portal Manager ---
+        const mainMenu = document.getElementById('main-menu');
+        const symphonyContainer = document.getElementById('symphony-container');
+        const gameContainer = document.getElementById('game-container');
+        const startSymphonyBtn = document.getElementById('start-symphony-btn');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const backBtn = document.getElementById('back-to-menu-btn');
+
+        let symphonyInstance = null;
+        let gameInstance = null;
+        
+        startSymphonyBtn.addEventListener('click', () => {
+            mainMenu.classList.add('hidden');
+            symphonyContainer.classList.remove('hidden');
+            backBtn.classList.remove('hidden');
+            if (!symphonyInstance) {
+                symphonyInstance = new CosmicSymphony(symphonyContainer, THREE, OrbitControls, EffectComposer, RenderPass, UnrealBloomPass);
+            }
+            symphonyInstance.start();
+        });
+
+        startGameBtn.addEventListener('click', () => {
+            mainMenu.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            backBtn.classList.remove('hidden');
+            if (!gameInstance) {
+                gameInstance = new StarshipGame();
+            }
+            gameInstance.start();
+        });
+
+        backBtn.addEventListener('click', () => {
+            mainMenu.classList.remove('hidden');
+            if (symphonyInstance && symphonyInstance.isRunning) symphonyInstance.stop();
+            if (gameInstance && gameInstance.isRunning) gameInstance.stop();
+            symphonyContainer.classList.add('hidden');
+            gameContainer.classList.add('hidden');
+            backBtn.classList.add('hidden');
+        });
+
+        // --- WORKING Cosmic Symphony Class ---
+        class CosmicSymphony {
+            constructor(container, THREE, OrbitControls, EffectComposer, RenderPass, UnrealBloomPass) { this.container = container; this.THREE = THREE; this.OrbitControls = OrbitControls; this.EffectComposer = EffectComposer; this.RenderPass = RenderPass; this.UnrealBloomPass = UnrealBloomPass; this.isRunning = false; this.planets = []; this.asteroidBelt1 = null; this.asteroidBelt2 = null; this.notes = ["C2", "D2", "E3", "F3", "G3", "A4", "B4", "C5"]; this.synths = []; this.audioInitialized = false; }
+            init() { this.scene = new this.THREE.Scene(); this.camera = new this.THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); this.camera.position.set(0, 40, 90); this.renderer = new this.THREE.WebGLRenderer({ antialias: true }); this.renderer.setSize(window.innerWidth, window.innerHeight); this.renderer.setPixelRatio(window.devicePixelRatio); this.renderer.toneMapping = this.THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 0.8; this.container.appendChild(this.renderer.domElement); this.controls = new this.OrbitControls(this.camera, this.renderer.domElement); this.controls.enableDamping = true; this.controls.autoRotate = true; this.controls.autoRotateSpeed = 0.05; const ambientLight = new this.THREE.AmbientLight(0xffffff, 0.1); this.scene.add(ambientLight); const renderScene = new this.RenderPass(this.scene, this.camera); const bloomPass = new this.UnrealBloomPass(new this.THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.5, 0.1); this.composer = new this.EffectComposer(this.renderer); this.composer.addPass(renderScene); this.composer.addPass(bloomPass); this.createSun(); this.createPlanets(); this.asteroidBelt1 = this.createAsteroidBelt(26, 32, 2500); this.scene.add(this.asteroidBelt1); this.asteroidBelt2 = this.createAsteroidBelt(85, 95, 3000); this.scene.add(this.asteroidBelt2); this.createNebulaBackground(); this.createStars(); this.resizeListener = () => this.onWindowResize(); window.addEventListener('resize', this.resizeListener); this.initAudio(); }
+            initAudio() { if (this.audioInitialized) return; const reverb = new Tone.Reverb(5).toDestination(); const chorus = new Tone.Chorus(4, 2.5, 0.5).connect(reverb); for (let i = 0; i < 8; i++) { const synth = new Tone.FMSynth({ harmonicity: 1.2, envelope: { attack: 0.1, release: 2 } }).connect(chorus); this.synths.push(synth); } this.audioInitialized = true; }
+            createSun() { const sunMaterial = new this.THREE.MeshBasicMaterial({ color: 0xffe8a9, fog: false }); const sun = new this.THREE.Mesh(new this.THREE.SphereGeometry(5, 64, 64), sunMaterial); this.scene.add(sun); const pointLight = new this.THREE.PointLight(0xffe8a9, 1.5, 600); sun.add(pointLight); }
+            createPlanets() { const planetData = [ { name: 'Mercury', size: 0.3, color: 0x9a9a9a, speed: 0.008, distance: 8 }, { name: 'Venus', size: 0.5, color: 0xeda469, speed: 0.006, distance: 12 }, { name: 'Earth', size: 0.6, color: 0x6994ed, speed: 0.005, distance: 17 }, { name: 'Mars', size: 0.4, color: 0xdb5d3a, speed: 0.004, distance: 23 }, { name: 'Jupiter', size: 2.5, color: 0xc4a382, speed: 0.0015, distance: 40 }, { name: 'Saturn', size: 2.0, color: 0xe3d9b1, speed: 0.001, distance: 55, hasRings: true }, { name: 'Uranus', size: 1.2, color: 0xb4c8c7, speed: 0.0007, distance: 68 }, { name: 'Neptune', size: 1.1, color: 0x6e84ed, speed: 0.0005, distance: 80 }, ]; planetData.forEach((data) => { const planetGroup = new this.THREE.Group(); this.scene.add(planetGroup); const geometry = new this.THREE.SphereGeometry(data.size, 32, 32); const material = new this.THREE.MeshStandardMaterial({ color: data.color, roughness: 0.8, metalness: 0.1, }); const planet = new this.THREE.Mesh(geometry, material); planet.position.x = data.distance; planetGroup.add(planet); if (data.hasRings) { const ringGeo = new this.THREE.RingGeometry(data.size * 1.4, data.size * 2.2, 64); const ringMat = new this.THREE.MeshBasicMaterial({ color: 0x99907d, side: this.THREE.DoubleSide, transparent: true, opacity: 0.6 }); const ring = new this.THREE.Mesh(ringGeo, ringMat); ring.rotation.x = Math.PI * 0.55; planet.add(ring); } const orbitGeo = new this.THREE.RingGeometry(data.distance - 0.08, data.distance + 0.08, 128); const orbitMat = new this.THREE.MeshBasicMaterial({ color: 0x444444, side: this.THREE.DoubleSide }); const orbit = new this.THREE.Mesh(orbitGeo, orbitMat); orbit.rotation.x = -Math.PI / 2; this.scene.add(orbit); this.planets.push({ group: planetGroup, data: data, lastPlayTime: 0 }); }); }
+            createAsteroidBelt(innerRadius, outerRadius, count) { const belt = new this.THREE.Group(); const asteroidGeo = new this.THREE.DodecahedronGeometry(0.1, 0); for (let i = 0; i < count; i++) { const asteroidMat = new this.THREE.MeshStandardMaterial({ color: new this.THREE.Color().setScalar(Math.random() * 0.2 + 0.3), roughness: 0.9 }); const asteroid = new this.THREE.Mesh(asteroidGeo, asteroidMat); const angle = Math.random() * Math.PI * 2; const radius = Math.random() * (outerRadius - innerRadius) + innerRadius; const x = Math.cos(angle) * radius; const z = Math.sin(angle) * radius; const y = (Math.random() - 0.5) * 1.2; asteroid.position.set(x, y, z); asteroid.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2); asteroid.scale.setScalar(Math.random() * 1.5 + 0.5); belt.add(asteroid); } return belt; }
+            createNebulaBackground() { const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024; const context = canvas.getContext('2d'); const gradient = context.createRadialGradient(512, 512, 200, 512, 512, 512); gradient.addColorStop(0, 'rgba(10, 15, 25, 1)'); gradient.addColorStop(0.5, 'rgba(5, 10, 20, 1)'); gradient.addColorStop(1, 'rgba(0, 0, 5, 1)'); context.fillStyle = gradient; context.fillRect(0,0,1024,1024); for (let i=0; i < 30; i++) { context.fillStyle = `rgba(${Math.random()*20 + 10}, ${Math.random()*40 + 20}, ${Math.random()*50 + 40}, ${Math.random()*0.1})`; context.beginPath(); context.arc(Math.random()*1024, Math.random()*1024, Math.random()*250+80, 0, 2*Math.PI); context.fill(); } const nebulaTexture = new this.THREE.CanvasTexture(canvas); const nebulaGeo = new this.THREE.SphereGeometry(600, 64, 64); const nebulaMat = new this.THREE.MeshBasicMaterial({ map: nebulaTexture, side: this.THREE.BackSide, fog: false }); const nebula = new this.THREE.Mesh(nebulaGeo, nebulaMat); this.scene.add(nebula); }
+            createStars() { const starGeo = new this.THREE.BufferGeometry(); const vertices = []; for (let i = 0; i < 15000; i++) { vertices.push((Math.random() - 0.5) * 1000, (Math.random() - 0.5) * 1000, (Math.random() - 0.5) * 1000); } starGeo.setAttribute('position', new this.THREE.Float32BufferAttribute(vertices, 3)); const starMat = new this.THREE.PointsMaterial({ color: 0xffffff, size: 0.25, fog: false }); const stars = new this.THREE.Points(starGeo, starMat); this.scene.add(stars); }
+            onWindowResize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); this.composer.setSize(window.innerWidth, window.innerHeight); }
+            start() { if (!this.renderer) this.init(); this.isRunning = true; this.clock = new this.THREE.Clock(); this.animate(); Tone.start(); }
+            stop() { this.isRunning = false; if(this.animationFrameId) cancelAnimationFrame(this.animationFrameId); window.removeEventListener('resize', this.resizeListener); this.container.innerHTML = ''; this.renderer = null; }
+            animate() { if (!this.isRunning) return; this.animationFrameId = requestAnimationFrame(() => this.animate()); const delta = this.clock.getDelta(); const elapsedTime = this.clock.getElapsedTime(); this.planets.forEach((p, index) => { p.group.rotation.y += p.data.speed; if(this.audioInitialized) { const angle = p.group.rotation.y % (2 * Math.PI); if(Math.abs(angle - Math.PI / 2) < 0.05 && elapsedTime - p.lastPlayTime > 3) { this.synths[index].triggerAttackRelease(this.notes[index % this.notes.length], "4n"); p.lastPlayTime = elapsedTime; } } }); this.asteroidBelt1.rotation.y += 0.0002; this.asteroidBelt2.rotation.y += 0.0001; this.controls.update(); this.composer.render(delta); }
+        }
+
+        // --- Starship Game Class (with Final Polish) ---
+        class StarshipGame {
+             constructor() {
+                this.canvas = document.getElementById('game-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.scoreEl = document.getElementById('score');
+                this.livesEl = document.getElementById('lives');
+                this.highScoreEl = document.getElementById('high-score');
+                this.gameOverScreen = document.getElementById('game-over-screen');
+                this.finalScoreEl = document.getElementById('final-score');
+                this.restartBtn = document.getElementById('restart-game-btn');
+                this.mobileControls = document.getElementById('mobile-controls');
+                
+                this.isTouchDevice = 'ontouchstart' in window;
+                if (this.isTouchDevice) this.mobileControls.classList.remove('hidden');
+                
+                this.restartBtn.addEventListener('click', () => this.start());
+                this.keys = {};
+                this.keyUpListener = (e) => this.keys[e.code] = false;
+                this.keyDownListener = (e) => this.keys[e.code] = true;
+                this.animationFrameId = null;
+                this.isRunning = false;
+                
+                this.playerImage = this.createPlayerImage();
+                this.asteroidImages = [this.createAsteroidImage(), this.createAsteroidImage(), this.createAsteroidImage()];
+                
+                // Audio setup
+                this.audioInitialized = false;
+                this.initAudio();
+            }
+            
+            initAudio() {
+                this.laserSynth = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.1 } }).toDestination();
+                this.explosionSynth = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.2 } }).toDestination();
+                this.damageSynth = new Tone.FMSynth({ harmonicity: 1.5, modulationIndex: 10, envelope: { attack: 0.01, decay: 0.5 } }).toDestination();
+                this.gameOverSynth = new Tone.Synth({ oscillator: { type: 'sine' } }).toDestination();
+            }
+
+            createPlayerImage() { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); canvas.width = 50; canvas.height = 60; ctx.fillStyle = '#c0c0c0'; ctx.beginPath(); ctx.moveTo(25, 0); ctx.lineTo(5, 50); ctx.lineTo(25, 40); ctx.lineTo(45, 50); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#404040'; ctx.beginPath(); ctx.moveTo(25, 5); ctx.lineTo(10, 48); ctx.lineTo(25, 38); ctx.lineTo(40, 48); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.arc(25, 23, 7, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.stroke(); return canvas; }
+            createAsteroidImage() { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const size = 50; canvas.width = size; canvas.height = size; ctx.fillStyle = '#6D4C41'; ctx.beginPath(); ctx.moveTo(size * (Math.random()*0.2+0.1), size * (Math.random()*0.2)); for(let i=1; i<8; i++) { ctx.lineTo(size * (Math.random()*0.8+0.1), size * (Math.random()*0.8+0.1)); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#4E342E'; ctx.lineWidth = 2; ctx.stroke(); return canvas; }
+            
+            setupMobileControls() {
+                const leftBtn = document.getElementById('left-btn');
+                const rightBtn = document.getElementById('right-btn');
+                const fireButton = document.getElementById('fire-button');
+                
+                leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.player.dx = -this.player.speed; }, { passive: false });
+                leftBtn.addEventListener('touchend', (e) => { e.p
